@@ -695,7 +695,7 @@
   <script>
     // Safe storage helper
     function saveStateSafe(key, val) {
-      try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { if (e.name === 'AbortError') return ''; }
     }
     function loadStateSafe(key, fallback) {
       try {
@@ -812,16 +812,16 @@
     let lastSpokenText = '';
     let cachedVoices = [];
     const MALE_VOICE_PRESETS = [
-      { id: 'preset:male_jarvis', label: 'Deep Jarvis (गहरी व दमदार आवाज़)', pitch: 0.85, rate: 1.0 },
-      { id: 'preset:male_buddy', label: 'Smart Buddy (दोस्ताना व नैचुरल)', pitch: 0.96, rate: 1.05 },
-      { id: 'preset:male_bidu', label: 'Tapori Bidu (तेज़ व मस्त स्टाइल)', pitch: 1.02, rate: 1.15 },
-      { id: 'preset:male_anchor', label: 'Calm Anchor (साफ व धीमी आवाज़)', pitch: 0.90, rate: 0.92 }
+      { id: 'preset:male_jarvis', label: 'Deep Jarvis (बहुत गहरी व भारी)', pitch: 0.65, rate: 0.98 },
+      { id: 'preset:male_buddy', label: 'Smart Buddy (सामान्य मेल आवाज़)', pitch: 0.78, rate: 1.05 },
+      { id: 'preset:male_bidu', label: 'Tapori Bidu (तेज़ व मस्त स्टाइल)', pitch: 0.84, rate: 1.16 },
+      { id: 'preset:male_anchor', label: 'Calm Anchor (धीमी व गंभीर)', pitch: 0.70, rate: 0.90 }
     ];
     const FEMALE_VOICE_PRESETS = [
-      { id: 'preset:female_priya', label: 'Warm Priya (मधुर व नैचुरल)', pitch: 1.12, rate: 1.02 },
-      { id: 'preset:female_friday', label: 'Smart Friday (प्रोफेशनल AI)', pitch: 1.06, rate: 1.05 },
-      { id: 'preset:female_tara', label: 'Energetic Tara (चुलबुली व तेज़)', pitch: 1.20, rate: 1.14 },
-      { id: 'preset:female_meera', label: 'Calm Meera (शांत व स्पष्ट)', pitch: 1.02, rate: 0.94 }
+      { id: 'preset:female_priya', label: 'Warm Priya (मधुर व नैचुरल)', pitch: 1.18, rate: 1.02 },
+      { id: 'preset:female_friday', label: 'Smart Friday (स्मार्ट व क्लियर)', pitch: 1.10, rate: 1.06 },
+      { id: 'preset:female_tara', label: 'Energetic Tara (तेज़ व ऊँची आवाज़)', pitch: 1.32, rate: 1.15 },
+      { id: 'preset:female_meera', label: 'Calm Meera (शांत व धीमी)', pitch: 1.05, rate: 0.92 }
     ];
 
     function populateVoiceDropdown() {
@@ -1139,13 +1139,14 @@
     // Optional: paste your Gemini API Key once here in code (no UI prompt shown)
     const GEMINI_API_KEY = '';
 
-    async function fetchSmartAnswer(userText, activeLang, activeStyle) {
+    async function fetchSmartAnswer(userText, activeLang, activeStyle, signal) {
       // 1. Try Cloudflare Hybrid Backend (/api/chat -> Gemini with Llama Auto-Fallback)
       if (window.location.protocol.startsWith('http')) {
         try {
           const cfResp = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal,
             body: JSON.stringify({ prompt: userText, wakeWord: state.wakeWord, language: activeLang, tone: activeStyle })
           });
           if (cfResp.ok) {
@@ -1201,16 +1202,28 @@
       log.scrollTop = log.scrollHeight;
     }
 
+    let activeReqId = 0;
+    let currentAbort = null;
+
     async function handleCommand(text) {
       if (!text.trim()) return;
+      const myReqId = ++activeReqId;
+      if (currentAbort) { try { currentAbort.abort(); } catch (e) {} }
+      currentAbort = new AbortController();
+
       addChatMessage('user', text);
+      showVoiceSubtitle('सोच रहा हूँ...');
+
       let reply = generateBrainReply(text);
       const detected = detectStyleAndLang(text);
       if (reply === '__LIVE_WEATHER__') {
         reply = await fetchLiveWeather(detected.lang);
       } else if (reply === null) {
-        reply = await fetchSmartAnswer(text, detected.lang, detected.style);
+        reply = await fetchSmartAnswer(text, detected.lang, detected.style, currentAbort.signal);
       }
+
+      // Discard stale response if user already asked a newer question!
+      if (myReqId !== activeReqId || !reply) return;
       addChatMessage('ai', reply);
       speakText(reply);
     }
