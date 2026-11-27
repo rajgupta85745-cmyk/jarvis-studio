@@ -1,0 +1,1807 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Custom AI Voice Assistant & Smart Media Studio</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Orbitron:wght@500;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #060b14;
+      --bg-card: #0d1626;
+      --bg-elevated: #132038;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.35);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border-color: rgba(56, 189, 248, 0.22);
+      --font-active: 'Inter', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: var(--font-active);
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    .card-surface {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .elevated-surface {
+      background-color: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+    }
+
+    .accent-bg {
+      background-color: var(--accent);
+      color: #04070d;
+    }
+
+    .accent-text {
+      color: var(--accent);
+    }
+
+    .accent-border {
+      border-color: var(--accent);
+    }
+
+    .glow-ring {
+      box-shadow: 0 0 28px var(--accent-glow), inset 0 0 18px var(--accent-glow);
+    }
+
+    @keyframes pulse-orb {
+      0%, 100% { transform: scale(1); opacity: 0.9; }
+      50% { transform: scale(1.06); opacity: 1; }
+    }
+
+    .orb-active {
+      animation: pulse-orb 1.6s infinite ease-in-out;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 999px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col overflow-x-hidden">
+
+  <!-- Toast Notification -->
+  <div id="toast-container" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-auto sm:top-4 sm:right-4 z-50 flex flex-col gap-2 sm:max-w-sm pointer-events-none"></div>
+
+  <!-- Top Header -->
+  <header class="sticky top-0 z-30 backdrop-blur-md border-b" style="background-color: rgba(6,11,20,0.82); border-color: var(--border-color);">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div id="header-app-icon" class="w-10 h-10 rounded-xl flex items-center justify-center accent-border border bg-black/40 overflow-hidden shrink-0">
+          <!-- Dynamic SVG/Image Icon -->
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight">
+              <span id="header-wake-name" class="accent-text">Jarvis</span> Studio
+            </h1>
+            <span id="listening-badge" class="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-slate-600 text-slate-300 bg-slate-800/60">
+              STANDBY
+            </span>
+          </div>
+          <p class="text-xs" style="color: var(--text-muted);">Custom AI Voice Assistant & Smart Media Studio</p>
+        </div>
+      </div>
+
+      <!-- Quick Language, Voice & Mic Controls -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <div class="flex items-center rounded-lg p-0.5 border text-[11px] font-semibold" style="border-color: var(--border-color); background: var(--bg-elevated);" role="group" aria-label="Language Switcher">
+          <button type="button" data-top-lang="hi-IN" class="top-lang-btn px-2 py-1 rounded-md transition">हिंदी</button>
+          <button type="button" data-top-lang="en-IN" class="top-lang-btn px-2 py-1 rounded-md transition">EN</button>
+          <button type="button" data-top-lang="pa-IN" class="top-lang-btn px-2 py-1 rounded-md transition">PA</button>
+        </div>
+        <button id="btn-quick-test-voice" type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition hover:opacity-90 flex items-center gap-1.5" style="border-color: var(--border-color); background: var(--bg-elevated);">
+          <i data-lucide="volume-2" class="w-3.5 h-3.5 accent-text"></i>
+          <span>आवाज़ टेस्ट करें</span>
+        </button>
+        <button id="btn-toggle-continuous" type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold accent-bg transition hover:opacity-90 flex items-center gap-1.5">
+          <i data-lucide="mic" class="w-3.5 h-3.5"></i>
+          <span id="label-continuous-btn">माइक चालू करें</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="max-w-7xl mx-auto px-4 flex items-center gap-1 overflow-x-auto pb-2">
+      <button data-tab="voice" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition flex items-center gap-1.5">
+        <i data-lucide="audio-waveform" class="w-4 h-4"></i> वॉइस ब्रेन (Voice & AI)
+      </button>
+      <button data-tab="automation" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition flex items-center gap-1.5">
+        <i data-lucide="smartphone" class="w-4 h-4"></i> डिवाइस कंट्रोल
+      </button>
+      <button data-tab="studio" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition flex items-center gap-1.5">
+        <i data-lucide="clapperboard" class="w-4 h-4"></i> मीडिया स्टूडियो
+      </button>
+      <button data-tab="aigen" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition flex items-center gap-1.5">
+        <i data-lucide="sparkles" class="w-4 h-4"></i> AI जनरेशन
+      </button>
+      <button data-tab="settings" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition flex items-center gap-1.5">
+        <i data-lucide="palette" class="w-4 h-4"></i> थीम व सेटिंग्स
+      </button>
+      <button data-tab="architecture" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition flex items-center gap-1.5">
+        <i data-lucide="cpu" class="w-4 h-4"></i> ब्रेन आर्किटेक्चर
+      </button>
+    </nav>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-5">
+
+    <!-- TAB 1: VOICE ENGINE & BRAIN -->
+    <section id="tab-voice" class="tab-panel grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <!-- Left: Voice Orb, VAD & Live Mic -->
+      <div class="lg:col-span-5 flex flex-col gap-5">
+        <div class="card-surface rounded-2xl p-5 flex flex-col items-center text-center">
+          <div class="w-full flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-muted);">Wake-Word & VAD Engine</span>
+            <span id="vad-status-pill" class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Noise Filter: ON</span>
+          </div>
+
+          <!-- Interactive Orb -->
+          <button id="orb-mic-btn" type="button" class="relative w-32 h-32 rounded-full flex items-center justify-center border-2 accent-border glow-ring transition-transform active:scale-95 my-3" style="background: radial-gradient(circle, var(--bg-elevated) 20%, var(--bg-primary) 100%);">
+            <div class="flex flex-col items-center">
+              <i data-lucide="mic" class="w-9 h-9 accent-text mb-1"></i>
+              <span id="orb-state-text" class="text-[11px] font-bold tracking-wider uppercase">Tap / Say Wake</span>
+            </div>
+          </button>
+
+          <p class="text-xs mt-1" style="color: var(--text-muted);">
+            एक्टिव वेक-वर्ड: <strong id="display-wake-word" class="accent-text">Jarvis</strong> • बंद करने के लिए बोलें: <em>"Exit", "बाय", "सो जाओ"</em>
+          </p>
+
+          <!-- Live Voice Output / Subtitle Banner -->
+          <div id="voice-output-banner" class="hidden w-full mt-3 p-2.5 rounded-xl border text-left text-xs" style="border-color: var(--accent); background: rgba(56,189,248,0.08);">
+            <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider accent-text mb-0.5">
+              <span id="voice-output-meta">SPEAKING • MALE • hi-IN</span>
+              <span>LIVE OUTPUT</span>
+            </div>
+            <div id="voice-output-text" class="text-xs leading-snug"></div>
+          </div>
+
+          <!-- Mobile WebView Mic Fallback Quick Trigger -->
+          <div id="mic-fallback-box" class="hidden w-full mt-3 p-2.5 rounded-xl elevated-surface text-left">
+            <div class="text-[11px] text-amber-300 font-semibold mb-1.5">ब्राउज़र माइक ब्लॉक है — नीचे से तुरंत कमांड टेस्ट करें:</div>
+            <div class="flex gap-1.5 flex-wrap">
+              <button type="button" class="quick-cmd text-[11px] px-2.5 py-1 rounded-lg accent-bg font-semibold" data-cmd="Jarvis, बैटरी और सिस्टम स्टेटस बताओ">बैटरी बताओ</button>
+              <button type="button" class="quick-cmd text-[11px] px-2.5 py-1 rounded-lg border accent-border text-xs" data-cmd="कैमरा खोलो और फोटो खींचो">कैमरा खोलो</button>
+              <button type="button" class="quick-cmd text-[11px] px-2.5 py-1 rounded-lg border accent-border text-xs" data-cmd="सो जाओ">सो जाओ</button>
+            </div>
+          </div>
+
+          <!-- Real-time VAD / Audio Visualizer -->
+          <div class="w-full mt-4 p-3 rounded-xl elevated-surface">
+            <div class="flex items-center justify-between text-[11px] mb-1.5" style="color: var(--text-muted);">
+              <span>Audio / VAD Waveform</span>
+              <span id="vad-db-label">Ambient: -42 dB (Filtered)</span>
+            </div>
+            <canvas id="vad-canvas" class="w-full h-14 rounded-lg bg-black/40"></canvas>
+            <div class="grid grid-cols-2 gap-2 mt-3 text-left">
+              <label class="flex items-center justify-between p-2 rounded-lg bg-black/25 text-xs cursor-pointer">
+                <span>Noise Filter</span>
+                <input id="toggle-noise-filter" type="checkbox" checked class="accent-cyan-400">
+              </label>
+              <label class="flex items-center justify-between p-2 rounded-lg bg-black/25 text-xs cursor-pointer">
+                <span>Continuous Loop</span>
+                <input id="toggle-continuous-loop" type="checkbox" checked class="accent-cyan-400">
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Voice Personality, Gender (Male/Female), Pitch, Speed & Language -->
+        <div class="card-surface rounded-2xl p-5 flex flex-col gap-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-bold flex items-center gap-2">
+              <i data-lucide="sliders" class="w-4 h-4 accent-text"></i>
+              आवाज़ और पर्सनैलिटी (Voice & Tone)
+            </h2>
+            <button id="btn-confirm-voice" type="button" class="text-xs px-2.5 py-1 rounded-lg accent-bg font-semibold">
+              पुष्टि करें (Test)
+            </button>
+          </div>
+
+          <!-- Male / Female + Specific Voice List Selector -->
+          <div>
+            <label class="block text-xs mb-1.5" style="color: var(--text-muted);">आवाज़ चुनें (Male / Female)</label>
+            <div class="grid grid-cols-2 gap-2 mb-2.5">
+              <button type="button" data-gender="male" class="gender-btn py-2 px-3 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5">
+                <i data-lucide="user" class="w-3.5 h-3.5"></i> Male (मेल)
+              </button>
+              <button type="button" data-gender="female" class="gender-btn py-2 px-3 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5">
+                <i data-lucide="user-check" class="w-3.5 h-3.5"></i> Female (फीमेल)
+              </button>
+            </div>
+            <label for="select-voice-name" class="block text-[11px] mb-1" style="color: var(--text-muted);">बोलने की आवाज़ चुनें (All Available Voices)</label>
+            <select id="select-voice-name" class="w-full rounded-xl px-2.5 py-2 text-xs elevated-surface outline-none">
+              <option value="auto">Auto Best Voice (अपने आप सबसे अच्छी आवाज़)</option>
+            </select>
+          </div>
+
+          <!-- Language (Auto-Detect Default) -->
+          <div>
+            <label for="select-language" class="block text-xs mb-1" style="color: var(--text-muted);">भाषा (Auto-Catch + Manual)</label>
+            <select id="select-language" class="w-full rounded-xl px-2.5 py-2 text-xs elevated-surface outline-none">
+              <option value="auto" selected>Auto-Catch (आपकी भाषा व स्टाइल अपने आप पकड़ेगा)</option>
+              <option value="hi-IN">हिंदी (Hindi)</option>
+              <option value="en-IN">English</option>
+              <option value="pa-IN">ਪੰਜਾਬੀ (Punjabi)</option>
+            </select>
+          </div>
+
+          <!-- Pitch & Speed Sliders -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span style="color: var(--text-muted);">Pitch</span>
+                <span id="val-pitch" class="font-mono accent-text">1.0</span>
+              </div>
+              <input id="range-pitch" type="range" min="0.6" max="1.5" step="0.05" value="1.0" class="w-full accent-cyan-400">
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span style="color: var(--text-muted);">Speed</span>
+                <span id="val-speed" class="font-mono accent-text">1.05x</span>
+              </div>
+              <input id="range-speed" type="range" min="0.7" max="1.5" step="0.05" value="1.05" class="w-full accent-cyan-400">
+            </div>
+          </div>
+
+          <!-- Custom Wake-Word Add & Quick Switch -->
+          <div>
+            <label class="block text-xs mb-1.5" style="color: var(--text-muted);">कस्टम वेक-वर्ड जोड़ें व बदलें (Custom Wake-Word)</label>
+            <div class="flex gap-2">
+              <input id="input-wake-word" type="text" value="" class="flex-1 rounded-xl px-3 py-1.5 text-xs elevated-surface outline-none" placeholder="नया नाम लिखें (जैसे: Rocky, Bhai)">
+              <button id="btn-save-wake-word" type="button" class="px-3 py-1.5 rounded-xl text-xs font-semibold accent-bg">+ जोड़ें / सेव</button>
+            </div>
+            <div id="wake-presets-list" class="flex gap-1.5 mt-2 flex-wrap"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Smart Brain Conversation & Command Simulator -->
+      <div class="lg:col-span-7 card-surface rounded-2xl p-5 flex flex-col h-[640px]">
+        <div class="flex items-center justify-between pb-3 border-b" style="border-color: var(--border-color);">
+          <div>
+            <h2 class="text-sm font-bold flex items-center gap-2">
+              <i data-lucide="brain-circuit" class="w-4 h-4 accent-text"></i>
+              स्मार्ट ब्रेन कंसोल (Live Command & Dialogue)
+            </h2>
+            <p class="text-[11px]" style="color: var(--text-muted);">वेक-वर्ड बोलें या नीचे कमांड लिखकर/क्लिक करके टेस्ट करें</p>
+          </div>
+          <button id="btn-clear-chat" type="button" class="text-xs px-2.5 py-1 rounded-lg elevated-surface hover:opacity-80">Clear</button>
+        </div>
+
+        <!-- Chat Log -->
+        <div id="chat-log" class="flex-1 overflow-y-auto py-4 space-y-3 pr-1"></div>
+
+        <!-- Quick Command Chips -->
+        <div class="pt-2 pb-2 flex gap-1.5 overflow-x-auto">
+          <button type="button" class="quick-cmd shrink-0 text-[11px] px-2.5 py-1 rounded-full elevated-surface hover:opacity-80" data-cmd="Jarvis, बैटरी और सिस्टम स्टेटस बताओ">बैटरी व स्टेटस</button>
+          <button type="button" class="quick-cmd shrink-0 text-[11px] px-2.5 py-1 rounded-full elevated-surface hover:opacity-80" data-cmd="कैमरा खोलो और फोटो खींचो">कैमरा खोलो</button>
+          <button type="button" class="quick-cmd shrink-0 text-[11px] px-2.5 py-1 rounded-full elevated-surface hover:opacity-80" data-cmd="राहुल को एसएमएस लिखो और सेंड करो">एसएमएस भेजें</button>
+          <button type="button" class="quick-cmd shrink-0 text-[11px] px-2.5 py-1 rounded-full elevated-surface hover:opacity-80" data-cmd="सेम कार रील जैसा बीट-सिंक वीडियो बनाओ">बीट-सिंक रील</button>
+          <button type="button" class="quick-cmd shrink-0 text-[11px] px-2.5 py-1 rounded-full elevated-surface hover:opacity-80" data-cmd="सो जाओ">सो जाओ (Exit)</button>
+        </div>
+
+        <!-- Input Bar -->
+        <form id="chat-form" class="flex gap-2 pt-2 border-t" style="border-color: var(--border-color);">
+          <input id="chat-input" type="text" class="flex-1 rounded-xl px-3.5 py-2.5 text-sm elevated-surface outline-none" placeholder="कमांड बोलें या टाइप करें... (जैसे: 'Jarvis, कैमरा खोलो')">
+          <button type="submit" class="px-4 py-2.5 rounded-xl text-sm font-semibold accent-bg flex items-center gap-1.5">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">भेजें</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- TAB 2: SYSTEM & DEVICE AUTOMATION -->
+    <section id="tab-automation" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <!-- System Status Briefing -->
+      <div class="lg:col-span-5 card-surface rounded-2xl p-5 flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold flex items-center gap-2">
+            <i data-lucide="activity" class="w-4 h-4 accent-text"></i>
+            सिस्टम स्टेटस एनालिसिस
+          </h2>
+          <button id="btn-voice-briefing" type="button" class="text-xs px-3 py-1.5 rounded-xl accent-bg font-semibold flex items-center gap-1.5">
+            <i data-lucide="volume-2" class="w-3.5 h-3.5"></i> वॉयस ब्रीफिंग
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="p-3.5 rounded-xl elevated-surface">
+            <div class="text-xs" style="color: var(--text-muted);">बैटरी (Battery)</div>
+            <div id="sys-battery" class="text-2xl font-bold accent-text mt-1">84%</div>
+            <div class="text-[11px] text-emerald-400 mt-0.5">Fast Charging • 36°C</div>
+          </div>
+          <div class="p-3.5 rounded-xl elevated-surface">
+            <div class="text-xs" style="color: var(--text-muted);">स्टोरेज (Storage)</div>
+            <div class="text-2xl font-bold mt-1">78.4 GB</div>
+            <div class="text-[11px]" style="color: var(--text-muted);">128 GB में से खाली</div>
+          </div>
+          <div class="p-3.5 rounded-xl elevated-surface">
+            <div class="text-xs" style="color: var(--text-muted);">बैकग्राउंड टास्क</div>
+            <div id="sys-tasks-count" class="text-2xl font-bold mt-1">3 Active</div>
+            <div class="text-[11px]" style="color: var(--text-muted);">Voice VAD + Render Queue</div>
+          </div>
+          <div class="p-3.5 rounded-xl elevated-surface">
+            <div class="text-xs" style="color: var(--text-muted);">सक्रिय स्क्रीन</div>
+            <div id="sys-current-screen" class="text-lg font-bold accent-text mt-1 truncate">Home Screen</div>
+            <div class="text-[11px]" style="color: var(--text-muted);">OS Bridge Ready</div>
+          </div>
+        </div>
+
+        <!-- Direct Voice Commands -->
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider mb-2" style="color: var(--text-muted);">डायरेक्ट सिस्टम कमांड्स</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" class="sys-cmd-btn p-2.5 rounded-xl elevated-surface text-xs font-medium hover:opacity-85 text-left flex items-center gap-2" data-action="home">
+              <i data-lucide="home" class="w-4 h-4 accent-text"></i> होम स्क्रीन पर जाओ
+            </button>
+            <button type="button" class="sys-cmd-btn p-2.5 rounded-xl elevated-surface text-xs font-medium hover:opacity-85 text-left flex items-center gap-2" data-action="camera">
+              <i data-lucide="camera" class="w-4 h-4 accent-text"></i> कैमरा खोलो
+            </button>
+            <button type="button" class="sys-cmd-btn p-2.5 rounded-xl elevated-surface text-xs font-medium hover:opacity-85 text-left flex items-center gap-2" data-action="photo">
+              <i data-lucide="aperture" class="w-4 h-4 accent-text"></i> फोटो खींचो
+            </button>
+            <button type="button" class="sys-cmd-btn p-2.5 rounded-xl elevated-surface text-xs font-medium hover:opacity-85 text-left flex items-center gap-2" data-action="sms">
+              <i data-lucide="message-square" class="w-4 h-4 accent-text"></i> एसएमएस लिखो व सेंड करो
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- App Launcher & SMS Composer -->
+      <div class="lg:col-span-7 flex flex-col gap-5">
+        <div class="card-surface rounded-2xl p-5">
+          <h2 class="text-sm font-bold mb-3 flex items-center gap-2">
+            <i data-lucide="layout-grid" class="w-4 h-4 accent-text"></i>
+            ऐप ऑटोमेशन (Open / Close / Background Navigate)
+          </h2>
+          <div id="apps-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+        </div>
+
+        <!-- SMS Composer -->
+        <div class="card-surface rounded-2xl p-5">
+          <h2 class="text-sm font-bold mb-3 flex items-center gap-2">
+            <i data-lucide="send" class="w-4 h-4 accent-text"></i>
+            वॉयस SMS कंपोज़र
+          </h2>
+          <form id="sms-form" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <input id="sms-to" type="text" placeholder="प्राप्तकर्ता (जैसे: Rahul)" class="rounded-xl px-3 py-2 text-xs elevated-surface outline-none">
+            <input id="sms-body" type="text" placeholder="मैसेज लिखें या बोलें..." class="sm:col-span-2 rounded-xl px-3 py-2 text-xs elevated-surface outline-none">
+            <div class="sm:col-span-3 flex justify-end">
+              <button type="submit" class="px-4 py-2 rounded-xl text-xs font-semibold accent-bg">SMS सेंड करें</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: SMART VIDEO & PHOTO EDITING STUDIO -->
+    <section id="tab-studio" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <!-- Folder Architecture: Inputs & Outputs -->
+      <div class="lg:col-span-5 flex flex-col gap-5">
+        <div class="card-surface rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold flex items-center gap-2">
+              <i data-lucide="folder-input" class="w-4 h-4 accent-text"></i>
+              Inputs Folder (रॉ क्लिप्स व रेफरेंस)
+            </h2>
+            <label class="text-xs px-2.5 py-1 rounded-lg accent-bg font-semibold cursor-pointer">
+              + अपलोड
+              <input id="input-media-upload" type="file" accept="image/*,video/*" multiple class="hidden">
+            </label>
+          </div>
+          <div id="inputs-folder-list" class="space-y-2 max-h-56 overflow-y-auto pr-1"></div>
+        </div>
+
+        <div class="card-surface rounded-2xl p-5">
+          <h2 class="text-sm font-bold mb-3 flex items-center gap-2">
+            <i data-lucide="folder-check" class="w-4 h-4 text-emerald-400"></i>
+            Outputs Folder (ऑटो-सेव व प्रीव्यू)
+          </h2>
+          <div id="outputs-folder-list" class="space-y-2 max-h-56 overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+
+      <!-- Right: Auto Beat-Sync + Face Scan & Face Swap -->
+      <div class="lg:col-span-7 flex flex-col gap-5">
+        <!-- Auto Beat-Sync & Slow-Mo Transfer -->
+        <div class="card-surface rounded-2xl p-5">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <h2 class="text-sm font-bold flex items-center gap-2">
+                <i data-lucide="music" class="w-4 h-4 accent-text"></i>
+                ऑटो बीट-सिंक व स्लो-मोशन ट्रांसफर
+              </h2>
+              <p class="text-[11px]" style="color: var(--text-muted);">रेफरेंस रील की बीट्स, कट्स और स्पीड-रैम्पिंग आपकी क्लिप्स पर मैप करें</p>
+            </div>
+            <button id="btn-run-beatsync" type="button" class="px-3.5 py-2 rounded-xl text-xs font-semibold accent-bg flex items-center gap-1.5">
+              <i data-lucide="wand-2" class="w-3.5 h-3.5"></i> "सेम ऐसा बनाओ"
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <div class="p-3 rounded-xl elevated-surface">
+              <div class="text-[11px]" style="color: var(--text-muted);">Reference Video</div>
+              <div class="text-xs font-semibold mt-0.5">Car_Drift_Reel_Ref.mp4 (128 BPM)</div>
+              <div class="text-[11px] accent-text mt-1">Detected: 6 Beat Cuts • 0.4x → 2.2x Speed Ramp</div>
+            </div>
+            <div class="p-3 rounded-xl elevated-surface">
+              <div class="text-[11px]" style="color: var(--text-muted);">Target User Clips</div>
+              <div id="beatsync-target-name" class="text-xs font-semibold mt-0.5">My_Ride_Raw_01.mp4 + 2 Photos</div>
+              <div id="beatsync-status" class="text-[11px] text-emerald-400 mt-1">Ready to map</div>
+            </div>
+          </div>
+
+          <!-- Beat Timeline Visualizer -->
+          <div class="p-3 rounded-xl bg-black/35 border" style="border-color: var(--border-color);">
+            <div class="flex justify-between text-[11px] mb-2" style="color: var(--text-muted);">
+              <span>Beat-Sync & Speed-Ramp Curve</span>
+              <span id="beatsync-progress-label">0%</span>
+            </div>
+            <div id="beat-bars" class="flex items-end gap-1 h-12"></div>
+          </div>
+        </div>
+
+        <!-- Smart Face Scan & Face Swap -->
+        <div class="card-surface rounded-2xl p-5">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <h2 class="text-sm font-bold flex items-center gap-2">
+                <i data-lucide="scan-face" class="w-4 h-4 accent-text"></i>
+                स्मार्ट फेस स्कैन व फेस स्वैप (Multi-Angle)
+              </h2>
+              <p class="text-[11px]" style="color: var(--text-muted);">Front, Left व Right Profile सेव करें — मिसिंग एंगल पर असिस्टेंट खुद टोकेगा</p>
+            </div>
+            <button id="btn-run-faceswap" type="button" class="px-3.5 py-2 rounded-xl text-xs font-semibold accent-bg flex items-center gap-1.5">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Face Swap चलाएं
+            </button>
+          </div>
+
+          <!-- 3-Angle Enrollment Cards -->
+          <div class="grid grid-cols-3 gap-3 mb-3">
+            <div class="p-3 rounded-xl elevated-surface text-center">
+              <div class="text-xs font-semibold mb-1">Front (सीधा)</div>
+              <div id="angle-status-front" class="text-[11px] text-emerald-400 mb-2">Enrolled ✓</div>
+              <button type="button" data-angle="front" class="enroll-angle-btn w-full py-1.5 rounded-lg text-[11px] font-semibold border accent-border hover:opacity-85">स्कैन / बदलें</button>
+            </div>
+            <div class="p-3 rounded-xl elevated-surface text-center">
+              <div class="text-xs font-semibold mb-1">Left Profile</div>
+              <div id="angle-status-left" class="text-[11px] text-amber-400 mb-2">Missing ⚠</div>
+              <button type="button" data-angle="left" class="enroll-angle-btn w-full py-1.5 rounded-lg text-[11px] font-semibold border accent-border hover:opacity-85">स्कैन करें</button>
+            </div>
+            <div class="p-3 rounded-xl elevated-surface text-center">
+              <div class="text-xs font-semibold mb-1">Right Profile</div>
+              <div id="angle-status-right" class="text-[11px] text-emerald-400 mb-2">Enrolled ✓</div>
+              <button type="button" data-angle="right" class="enroll-angle-btn w-full py-1.5 rounded-lg text-[11px] font-semibold border accent-border hover:opacity-85">स्कैन / बदलें</button>
+            </div>
+          </div>
+
+          <!-- Human-in-the-loop Alert Box -->
+          <div id="face-hitl-alert" class="hidden p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-xs flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <strong class="text-amber-300">Human-in-the-Loop कन्फर्मेशन:</strong>
+              <span id="face-hitl-msg">"मुझे Left Profile एंगल का फोटो चाहिए — अभी कैप्चर करें?"</span>
+            </div>
+            <button id="btn-capture-missing-angle" type="button" class="px-3 py-1.5 rounded-lg bg-amber-400 text-black font-semibold text-xs">अभी कैप्चर करें</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: FUTURE AI GENERATION MODULE -->
+    <section id="tab-aigen" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div class="lg:col-span-6 card-surface rounded-2xl p-5 flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold flex items-center gap-2">
+            <i data-lucide="image" class="w-4 h-4 accent-text"></i>
+            Text-to-Image जनरेशन (Expandable Module)
+          </h2>
+          <span class="text-[11px] px-2 py-0.5 rounded-full elevated-surface">API Ready</span>
+        </div>
+        <textarea id="t2i-prompt" rows="3" class="w-full rounded-xl p-3 text-xs elevated-surface outline-none" placeholder="इमेज प्रॉम्प्ट लिखें... (जैसे: Cyberpunk futuristic sports car in Mumbai rain, neon reflections)"></textarea>
+        <div class="flex items-center justify-between gap-2">
+          <select id="t2i-ratio" class="rounded-xl px-3 py-2 text-xs elevated-surface outline-none">
+            <option value="16:9">16:9 (Widescreen)</option>
+            <option value="9:16">9:16 (Reels / Shorts)</option>
+            <option value="1:1">1:1 (Square)</option>
+          </select>
+          <button id="btn-gen-image" type="button" class="px-4 py-2 rounded-xl text-xs font-semibold accent-bg">इमेज बनाएं (Simulate)</button>
+        </div>
+        <div id="t2i-preview" class="h-44 rounded-xl elevated-surface flex items-center justify-center text-xs overflow-hidden" style="color: var(--text-muted);">
+          प्रीव्यू यहाँ दिखेगा
+        </div>
+      </div>
+
+      <div class="lg:col-span-6 card-surface rounded-2xl p-5 flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold flex items-center gap-2">
+            <i data-lucide="video" class="w-4 h-4 accent-text"></i>
+            Text-to-Video जनरेशन (Expandable Module)
+          </h2>
+          <span class="text-[11px] px-2 py-0.5 rounded-full elevated-surface">Veo / Sora Hook</span>
+        </div>
+        <textarea id="t2v-prompt" rows="3" class="w-full rounded-xl p-3 text-xs elevated-surface outline-none" placeholder="वीडियो प्रॉम्प्ट लिखें... (जैसे: Cinematic drone shot over Varanasi ghats at sunrise)"></textarea>
+        <div class="flex items-center justify-between gap-2">
+          <select id="t2v-duration" class="rounded-xl px-3 py-2 text-xs elevated-surface outline-none">
+            <option value="5s">5 Seconds (1080p)</option>
+            <option value="10s">10 Seconds (4K)</option>
+          </select>
+          <button id="btn-gen-video" type="button" class="px-4 py-2 rounded-xl text-xs font-semibold accent-bg">वीडियो बनाएं (Simulate)</button>
+        </div>
+        <div id="t2v-preview" class="h-44 rounded-xl elevated-surface flex items-center justify-center text-xs overflow-hidden" style="color: var(--text-muted);">
+          वीडियो जनरेशन क्यू यहाँ दिखेगी
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: APP CUSTOMIZATION & THEMES -->
+    <section id="tab-settings" class="tab-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <!-- Pre-loaded Themes & Custom Theme Builder -->
+      <div class="lg:col-span-7 card-surface rounded-2xl p-5 flex flex-col gap-5">
+        <div>
+          <h2 class="text-sm font-bold mb-3 flex items-center gap-2">
+            <i data-lucide="palette" class="w-4 h-4 accent-text"></i>
+            प्री-लोडेड थीम्स (Theme Engine)
+          </h2>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <button type="button" data-theme="scifi" class="theme-preset-btn p-3 rounded-xl border text-left transition hover:opacity-90" style="background:#060b14; border-color:#38bdf8;">
+              <div class="w-5 h-5 rounded-full mb-2" style="background:#38bdf8;"></div>
+              <div class="text-xs font-bold text-white">Sci-Fi Blue</div>
+            </button>
+            <button type="button" data-theme="cyberpunk" class="theme-preset-btn p-3 rounded-xl border text-left transition hover:opacity-90" style="background:#12071f; border-color:#f43f5e;">
+              <div class="w-5 h-5 rounded-full mb-2" style="background:#f43f5e;"></div>
+              <div class="text-xs font-bold text-white">Cyberpunk Neon</div>
+            </button>
+            <button type="button" data-theme="minimal" class="theme-preset-btn p-3 rounded-xl border text-left transition hover:opacity-90" style="background:#111111; border-color:#e2e8f0;">
+              <div class="w-5 h-5 rounded-full mb-2" style="background:#e2e8f0;"></div>
+              <div class="text-xs font-bold text-white">Minimal Dark</div>
+            </button>
+            <button type="button" data-theme="ironman" class="theme-preset-btn p-3 rounded-xl border text-left transition hover:opacity-90" style="background:#1a0b0b; border-color:#f59e0b;">
+              <div class="w-5 h-5 rounded-full mb-2" style="background:#f59e0b;"></div>
+              <div class="text-xs font-bold text-white">Gold Iron-Man</div>
+            </button>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t" style="border-color: var(--border-color);">
+          <h3 class="text-sm font-bold mb-3">कस्टम थीम बिल्डर (Custom Theme Builder)</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <label class="p-3 rounded-xl elevated-surface flex items-center justify-between text-xs cursor-pointer">
+              <span>Background Color</span>
+              <input id="custom-bg-color" type="color" value="#060b14" class="w-8 h-8 rounded cursor-pointer bg-transparent border-0">
+            </label>
+            <label class="p-3 rounded-xl elevated-surface flex items-center justify-between text-xs cursor-pointer">
+              <span>Accent Color</span>
+              <input id="custom-accent-color" type="color" value="#38bdf8" class="w-8 h-8 rounded cursor-pointer bg-transparent border-0">
+            </label>
+            <div class="p-3 rounded-xl elevated-surface">
+              <label for="custom-font-select" class="block text-[11px] mb-1" style="color: var(--text-muted);">Font Style</label>
+              <select id="custom-font-select" class="w-full bg-transparent text-xs font-semibold outline-none">
+                <option value="'Inter', sans-serif">Inter (Clean)</option>
+                <option value="'Orbitron', sans-serif">Orbitron (Sci-Fi)</option>
+                <option value="'Poppins', sans-serif">Poppins (Modern)</option>
+                <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- App Icon Switcher -->
+      <div class="lg:col-span-5 card-surface rounded-2xl p-5 flex flex-col gap-4">
+        <h2 class="text-sm font-bold flex items-center gap-2">
+          <i data-lucide="app-window" class="w-4 h-4 accent-text"></i>
+          ऐप आइकन कस्टमाइज़र (App Icon Switcher)
+        </h2>
+        <div class="grid grid-cols-4 gap-3">
+          <button type="button" data-icon="arc" class="icon-preset-btn p-3 rounded-xl elevated-surface flex flex-col items-center gap-1.5 hover:opacity-85">
+            <i data-lucide="cpu" class="w-6 h-6 text-sky-400"></i>
+            <span class="text-[10px]">Arc Core</span>
+          </button>
+          <button type="button" data-icon="sheru" class="icon-preset-btn p-3 rounded-xl elevated-surface flex flex-col items-center gap-1.5 hover:opacity-85">
+            <i data-lucide="flame" class="w-6 h-6 text-amber-400"></i>
+            <span class="text-[10px]">Sheru</span>
+          </button>
+          <button type="button" data-icon="bidu" class="icon-preset-btn p-3 rounded-xl elevated-surface flex flex-col items-center gap-1.5 hover:opacity-85">
+            <i data-lucide="zap" class="w-6 h-6 text-rose-400"></i>
+            <span class="text-[10px]">Bidu</span>
+          </button>
+          <button type="button" data-icon="shield" class="icon-preset-btn p-3 rounded-xl elevated-surface flex flex-col items-center gap-1.5 hover:opacity-85">
+            <i data-lucide="shield" class="w-6 h-6 text-emerald-400"></i>
+            <span class="text-[10px]">Guardian</span>
+          </button>
+        </div>
+
+        <label class="mt-2 p-4 rounded-xl border border-dashed text-center cursor-pointer hover:opacity-85" style="border-color: var(--accent);">
+          <div class="text-xs font-semibold accent-text">कस्टम आइकन अपलोड करें (PNG / SVG)</div>
+          <div class="text-[11px] mt-1" style="color: var(--text-muted);">हेडर और ऐप लोगो तुरंत अपडेट होगा</div>
+          <input id="input-custom-icon" type="file" accept="image/*" class="hidden">
+        </label>
+      </div>
+    </section>
+
+    <!-- TAB 6: SMART BRAIN ARCHITECTURE BLUEPRINT -->
+    <section id="tab-architecture" class="tab-panel hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="card-surface rounded-2xl p-5">
+        <h3 class="text-sm font-bold accent-text mb-2">1. Core Voice & Wake-Word Brain</h3>
+        <ul class="text-xs space-y-1.5" style="color: var(--text-muted);">
+          <li>• <strong>Wake-Word:</strong> Picovoice Porcupine / OpenWakeWord (Custom .ppn models for Jarvis, Sheru, Bidu)</li>
+          <li>• <strong>VAD & Noise Filter:</strong> Silero VAD + RNNoise / Krisp SDK</li>
+          <li>• <strong>ASR (Speech-to-Text):</strong> Faster-Whisper / Deepgram Nova-2 (Hindi, Punjabi, English auto-detect)</li>
+          <li>• <strong>TTS (Male/Female):</strong> ElevenLabs / Azure Neural TTS / Edge-TTS (Pitch & Speed control)</li>
+        </ul>
+      </div>
+      <div class="card-surface rounded-2xl p-5">
+        <h3 class="text-sm font-bold accent-text mb-2">2. Adaptive LLM & Memory Router</h3>
+        <ul class="text-xs space-y-1.5" style="color: var(--text-muted);">
+          <li>• <strong>Intent & Tool Calling:</strong> Gemini 2.5 Flash / GPT-4o-mini with JSON function schemas</li>
+          <li>• <strong>Tone Adapter:</strong> System prompt personas (Desi, Tapori 'Bidu', Formal, Unfiltered)</li>
+          <li>• <strong>Session State:</strong> Continuous loop state machine (IDLE → ACTIVE → SLEEP on "Exit/बाय/सो जाओ")</li>
+        </ul>
+      </div>
+      <div class="card-surface rounded-2xl p-5">
+        <h3 class="text-sm font-bold accent-text mb-2">3. Device Automation Bridge</h3>
+        <ul class="text-xs space-y-1.5" style="color: var(--text-muted);">
+          <li>• <strong>Android OS Layer:</strong> Kotlin AccessibilityService + Foreground Service</li>
+          <li>• <strong>Direct Intents:</strong> Home, Camera2 API Capture, SmsManager, PackageManager</li>
+          <li>• <strong>Telemetry:</strong> BatteryManager, StorageStatsManager → Voice Briefing</li>
+        </ul>
+      </div>
+      <div class="card-surface rounded-2xl p-5">
+        <h3 class="text-sm font-bold accent-text mb-2">4. Beat-Sync & Slow-Mo Engine</h3>
+        <ul class="text-xs space-y-1.5" style="color: var(--text-muted);">
+          <li>• <strong>Beat Detection:</strong> Librosa / Madmom onset & BPM extraction from reference reel</li>
+          <li>• <strong>Speed-Ramping:</strong> Optical Flow (RIFE) frame interpolation + FFmpeg setpts filters</li>
+          <li>• <strong>Storage:</strong> /Inputs & /Outputs auto-watch folder with instant preview</li>
+        </ul>
+      </div>
+      <div class="card-surface rounded-2xl p-5">
+        <h3 class="text-sm font-bold accent-text mb-2">5. Multi-Angle Face Swap Pipeline</h3>
+        <ul class="text-xs space-y-1.5" style="color: var(--text-muted);">
+          <li>• <strong>Enrollment:</strong> MediaPipe Face Mesh yaw/pitch estimation (Front, Left, Right)</li>
+          <li>• <strong>HITL Trigger:</strong> Angle gap detector pauses pipeline & asks user via TTS</li>
+          <li>• <strong>Swap & Blend:</strong> InsightFace (inswapper_128) + GFPGAN + color/lighting match</li>
+        </ul>
+      </div>
+      <div class="card-surface rounded-2xl p-5">
+        <h3 class="text-sm font-bold accent-text mb-2">6. Expandable AI Gen & UI</h3>
+        <ul class="text-xs space-y-1.5" style="color: var(--text-muted);">
+          <li>• <strong>Client App:</strong> Flutter / React Native with dynamic CSS/Theme tokens</li>
+          <li>• <strong>Icon Switcher:</strong> Android activity-alias / iOS setAlternateIconName</li>
+          <li>• <strong>Gen AI Hooks:</strong> Imagen / Flux (T2I) & Veo / Runway (T2V) REST adapters</li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Safe storage helper
+    function saveStateSafe(key, val) {
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+    }
+    function loadStateSafe(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (e) { return fallback; }
+    }
+
+    // App State
+    const state = loadStateSafe('jarvis_studio_state_v1', {
+      activeTab: 'voice',
+      wakeWord: 'Jarvis',
+      wakePresets: ['Jarvis', 'Sheru', 'Bidu'],
+      voiceName: 'auto',
+      isListening: false,
+      continuousLoop: true,
+      noiseFilter: true,
+      gender: 'male',
+      language: 'auto',
+      tone: 'auto',
+      pitch: 1.0,
+      speed: 1.05,
+      theme: 'scifi',
+      customBg: '#060b14',
+      customAccent: '#38bdf8',
+      customFont: "'Inter', sans-serif",
+      appIcon: 'arc',
+      customIconDataUrl: null,
+      battery: 84,
+      currentScreen: 'Home Screen',
+      apps: [
+        { id: 'camera', name: 'Camera', icon: 'camera', open: false },
+        { id: 'whatsapp', name: 'WhatsApp', icon: 'message-circle', open: true },
+        { id: 'youtube', name: 'YouTube', icon: 'play-circle', open: false },
+        { id: 'spotify', name: 'Spotify', icon: 'music', open: true },
+        { id: 'gallery', name: 'Gallery', icon: 'image', open: false },
+        { id: 'settings', name: 'Settings', icon: 'settings', open: false }
+      ],
+      inputs: [
+        { id: 'in1', name: 'Car_Drift_Reel_Ref.mp4', type: 'Reference Video', size: '14.2 MB' },
+        { id: 'in2', name: 'My_Ride_Raw_01.mp4', type: 'Raw Clip', size: '28.5 MB' },
+        { id: 'in3', name: 'Portrait_Front.jpg', type: 'Raw Photo', size: '3.1 MB' }
+      ],
+      outputs: [
+        { id: 'out1', name: 'Sample_Teaser_Export.mp4', type: 'Rendered Reel', time: 'Ready' }
+      ],
+      faceAngles: { front: true, left: false, right: true },
+      chat: [
+        { role: 'ai', text: 'नमस्ते बॉस! मैं आपका स्मार्ट असिस्टेंट हूँ। ऊपर से Male/Female आवाज़ और भाषा चुनकर "आवाज़ टेस्ट करें" दबाएं, या मुझे कोई भी कमांड दें!' }
+      ]
+    });
+
+    const THEMES = {
+      scifi: { bg: '#060b14', card: '#0d1626', elevated: '#132038', accent: '#38bdf8', glow: 'rgba(56, 189, 248, 0.35)', border: 'rgba(56, 189, 248, 0.22)' },
+      cyberpunk: { bg: '#12071f', card: '#1c0b2e', elevated: '#291042', accent: '#f43f5e', glow: 'rgba(244, 63, 94, 0.35)', border: 'rgba(244, 63, 94, 0.28)' },
+      minimal: { bg: '#111111', card: '#1a1a1a', elevated: '#242424', accent: '#e2e8f0', glow: 'rgba(226, 232, 240, 0.2)', border: 'rgba(226, 232, 240, 0.18)' },
+      ironman: { bg: '#1a0b0b', card: '#291111', elevated: '#381616', accent: '#f59e0b', glow: 'rgba(245, 158, 11, 0.35)', border: 'rgba(245, 158, 11, 0.28)' }
+    };
+
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      const colorClass = type === 'warn' ? 'border-amber-400/50 bg-amber-950/90 text-amber-100' : 'border-sky-400/40 bg-slate-900/95 text-slate-100';
+      el.className = `pointer-events-auto px-3.5 py-2.5 rounded-xl border text-xs shadow-xl backdrop-blur-md transition-all ${colorClass}`;
+      el.textContent = msg;
+      container.appendChild(el);
+      setTimeout(() => el.remove(), 3500);
+    }
+
+    let sharedAudioCtx = null;
+    function unlockAudioCtx() {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        if (!sharedAudioCtx) sharedAudioCtx = new AC();
+        if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+        return sharedAudioCtx;
+      } catch (e) { return null; }
+    }
+
+    // Web Audio API tone fallback when speechSynthesis is unavailable in mobile WebView
+    function playVoiceToneFallback(gender) {
+      try {
+        const ctx = unlockAudioCtx();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const freqs = gender === 'female' ? [523.25, 659.25] : [196.0, 246.94];
+        freqs.forEach((f, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, now + i * 0.11);
+          gain.gain.setValueAtTime(0.08, now + i * 0.11);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.11 + 0.22);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + i * 0.11);
+          osc.stop(now + i * 0.11 + 0.24);
+        });
+      } catch (e) {}
+    }
+
+    function showVoiceSubtitle(text) {
+      const banner = document.getElementById('voice-output-banner');
+      const meta = document.getElementById('voice-output-meta');
+      const txt = document.getElementById('voice-output-text');
+      if (!banner || !meta || !txt) return;
+      meta.textContent = `SPEAKING • ${state.gender.toUpperCase()} • ${state.language}`;
+      txt.textContent = text;
+      banner.classList.remove('hidden');
+    }
+
+    let isSpeakingNow = false;
+    let lastSpokenText = '';
+    let cachedVoices = [];
+    const MALE_VOICE_PRESETS = [
+      { id: 'preset:male_jarvis', label: 'Deep Jarvis (गहरी व दमदार आवाज़)', pitch: 0.85, rate: 1.0 },
+      { id: 'preset:male_buddy', label: 'Smart Buddy (दोस्ताना व नैचुरल)', pitch: 0.96, rate: 1.05 },
+      { id: 'preset:male_bidu', label: 'Tapori Bidu (तेज़ व मस्त स्टाइल)', pitch: 1.02, rate: 1.15 },
+      { id: 'preset:male_anchor', label: 'Calm Anchor (साफ व धीमी आवाज़)', pitch: 0.90, rate: 0.92 }
+    ];
+    const FEMALE_VOICE_PRESETS = [
+      { id: 'preset:female_priya', label: 'Warm Priya (मधुर व नैचुरल)', pitch: 1.12, rate: 1.02 },
+      { id: 'preset:female_friday', label: 'Smart Friday (प्रोफेशनल AI)', pitch: 1.06, rate: 1.05 },
+      { id: 'preset:female_tara', label: 'Energetic Tara (चुलबुली व तेज़)', pitch: 1.20, rate: 1.14 },
+      { id: 'preset:female_meera', label: 'Calm Meera (शांत व स्पष्ट)', pitch: 1.02, rate: 0.94 }
+    ];
+
+    function populateVoiceDropdown() {
+      const sel = document.getElementById('select-voice-name');
+      if (!sel) return;
+      const presets = state.gender === 'female' ? FEMALE_VOICE_PRESETS : MALE_VOICE_PRESETS;
+      const voices = ('speechSynthesis' in window)
+        ? (cachedVoices.length ? cachedVoices : window.speechSynthesis.getVoices())
+        : [];
+      const sorted = [...voices].sort((a, b) => {
+        const score = v => (v.lang.startsWith('hi') ? 0 : v.lang.startsWith('en-IN') ? 1 : v.lang.startsWith('en') ? 2 : 3);
+        return score(a) - score(b);
+      });
+      const presetOptions = presets.map(p => `<option value="${p.id}">${p.label}</option>`).join('');
+      const sysOptions = sorted.length
+        ? `<optgroup label="System / Google Voices">${sorted.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}">${v.name} (${v.lang})</option>`).join('')}</optgroup>`
+        : '';
+      sel.innerHTML = `<optgroup label="${state.gender === 'female' ? 'Female Voice Styles' : 'Male Voice Styles'}">${presetOptions}</optgroup>` + sysOptions;
+      if (state.voiceName && Array.from(sel.options).some(o => o.value === state.voiceName)) {
+        sel.value = state.voiceName;
+      } else {
+        state.voiceName = presets[0].id;
+        sel.value = state.voiceName;
+      }
+    }
+
+    if ('speechSynthesis' in window) {
+      cachedVoices = window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        cachedVoices = window.speechSynthesis.getVoices();
+        populateVoiceDropdown();
+      };
+    }
+
+    function pickBestNaturalVoice(targetLang, gender) {
+      const voices = cachedVoices.length ? cachedVoices : (window.speechSynthesis ? window.speechSynthesis.getVoices() : []);
+      if (!voices.length) return null;
+      if (state.voiceName && state.voiceName !== 'auto') {
+        const exact = voices.find(v => v.name === state.voiceName);
+        if (exact) return exact;
+      }
+      const langPrefix = targetLang.split('-')[0].toLowerCase();
+      let candidates = voices.filter(v => v.lang.toLowerCase().startsWith(langPrefix));
+      if (!candidates.length) candidates = voices;
+
+      // Prefer Google / Natural / Online neural voices first
+      const femaleHints = ['female', 'woman', 'swara', 'kalpana', 'lekha', 'heera', 'priya', 'samantha', 'zira', 'google हिन्दी', 'hia', 'hif'];
+      const maleHints = ['male', 'man', 'madhur', 'hemant', 'rishi', 'david', 'mark', 'alex', 'him', 'hie'];
+      const hints = gender === 'female' ? femaleHints : maleHints;
+
+      const naturalMatch = candidates.find(v =>
+        (v.name.toLowerCase().includes('google') || v.name.toLowerCase().includes('natural')) &&
+        hints.some(h => v.name.toLowerCase().includes(h))
+      );
+      if (naturalMatch) return naturalMatch;
+
+      const genderMatch = candidates.find(v => hints.some(h => v.name.toLowerCase().includes(h)));
+      if (genderMatch) return genderMatch;
+
+      const googleMatch = candidates.find(v => v.name.toLowerCase().includes('google'));
+      return googleMatch || candidates[0];
+    }
+
+    // Speech Synthesis (Male / Female + Language + Pitch + Speed + Mic Echo Lock)
+    function speakText(text) {
+      showVoiceSubtitle(text);
+      if (!('speechSynthesis' in window)) {
+        playVoiceToneFallback(state.gender);
+        return;
+      }
+
+      lastSpokenText = text.toLowerCase();
+      isSpeakingNow = true;
+      // Stop mic while Jarvis speaks so phone speaker NEVER echoes into mic!
+      if (recognition) {
+        try { recognition.abort(); } catch (e) {}
+      }
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      const targetLang = state.language === 'auto' ? 'hi-IN' : state.language;
+      utter.lang = targetLang;
+      const chosenVoice = pickBestNaturalVoice(targetLang, state.gender);
+      if (chosenVoice) utter.voice = chosenVoice;
+
+      // Apply selected Male/Female Voice Style preset or manual pitch/speed
+      const allPresets = [...MALE_VOICE_PRESETS, ...FEMALE_VOICE_PRESETS];
+      const activePreset = allPresets.find(p => p.id === state.voiceName);
+      if (activePreset) {
+        utter.pitch = activePreset.pitch;
+        utter.rate = activePreset.rate;
+      } else {
+        const basePitch = Number(state.pitch);
+        utter.pitch = state.gender === 'female' ? Math.min(1.25, basePitch + 0.08) : Math.max(0.82, basePitch - 0.08);
+        utter.rate = Number(state.speed);
+      }
+
+      const resumeMicAfterSpeak = () => {
+        isSpeakingNow = false;
+        if (state.isListening && state.continuousLoop && recognition) {
+          setTimeout(() => {
+            if (!state.isListening || isSpeakingNow) return;
+            try {
+              recognition.lang = state.language === 'auto' ? 'hi-IN' : state.language;
+              recognition.start();
+            } catch (e) {}
+          }, 650);
+        }
+      };
+
+      utter.onend = resumeMicAfterSpeak;
+      utter.onerror = resumeMicAfterSpeak;
+      window.speechSynthesis.speak(utter);
+    }
+
+    // Apply Theme
+    function applyTheme() {
+      const root = document.documentElement;
+      if (state.theme === 'custom') {
+        root.style.setProperty('--bg-primary', state.customBg);
+        root.style.setProperty('--bg-card', state.customBg);
+        root.style.setProperty('--bg-elevated', 'rgba(255,255,255,0.06)');
+        root.style.setProperty('--accent', state.customAccent);
+        root.style.setProperty('--accent-glow', state.customAccent + '55');
+        root.style.setProperty('--border-color', state.customAccent + '44');
+      } else {
+        const t = THEMES[state.theme] || THEMES.scifi;
+        root.style.setProperty('--bg-primary', t.bg);
+        root.style.setProperty('--bg-card', t.card);
+        root.style.setProperty('--bg-elevated', t.elevated);
+        root.style.setProperty('--accent', t.accent);
+        root.style.setProperty('--accent-glow', t.glow);
+        root.style.setProperty('--border-color', t.border);
+      }
+      root.style.setProperty('--font-active', state.customFont);
+    }
+
+    // Render App Icon
+    function renderAppIcon() {
+      const box = document.getElementById('header-app-icon');
+      if (state.customIconDataUrl) {
+        box.innerHTML = `<img src="${state.customIconDataUrl}" alt="App Icon" class="w-full h-full object-cover">`;
+        return;
+      }
+      const map = { arc: 'cpu', sheru: 'flame', bidu: 'zap', shield: 'shield' };
+      const iconName = map[state.appIcon] || 'cpu';
+      box.innerHTML = `<i data-lucide="${iconName}" class="w-5 h-5 accent-text"></i>`;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // Auto-detect user's language & speaking style from their words
+    function detectStyleAndLang(text) {
+      const lower = text.toLowerCase();
+      let lang = state.language === 'auto' ? 'hi-IN' : state.language;
+      if (state.language === 'auto') {
+        if (/[਀-੿]/.test(text) || /\b(paaji|veere|ki haal|sat sri akal|changa|oye)\b/i.test(lower)) {
+          lang = 'pa-IN';
+        } else if (!/[\u0900-\u097F]/.test(text) && /^[a-z0-9\s.,!?'"-]+$/i.test(text.trim())) {
+          lang = 'en-IN';
+        } else {
+          lang = 'hi-IN';
+        }
+      }
+      let style = 'casual';
+      if (/बीड़ू|टपोरी|अबे|झकास|क्या सीन|बोल ना|चिल|bidu|boss|bro|bhai|यार|भाई/.test(lower)) {
+        style = /बीड़ू|अबे|झकास|क्या सीन|bidu/.test(lower) ? 'tapori' : 'desi';
+      } else if (/कृपया|बताइए|महोदय|please|kindly|sir/.test(lower)) {
+        style = 'formal';
+      }
+      return { lang, style };
+    }
+
+    // Smart Brain Response Generator
+    function generateBrainReply(userText) {
+      const lower = userText.toLowerCase();
+      const wakeLower = state.wakeWord.toLowerCase();
+      const detected = detectStyleAndLang(userText);
+      const activeLang = detected.lang;
+      const activeStyle = detected.style;
+      state.tone = activeStyle;
+
+      // Check ALL exit / stop / sleep / band kar do phrases
+      const stopWords = ['exit', 'एग्जिट', 'इजेक्ट', 'बाय', 'bye', 'सो जा', 'बंद कर', 'बंद हो', 'रुक जा', 'चुप', 'stop', 'sleep', 'shut down', 'turn off'];
+      if (stopWords.some(w => lower.includes(w))) {
+        state.isListening = false;
+        if (recognition) {
+          try { recognition.abort(); } catch (e) {}
+          try { recognition.stop(); } catch (e) {}
+        }
+        updateListeningUI();
+        return activeLang === 'en-IN'
+          ? `Okay Boss, mic is off now. Say "${state.wakeWord}" whenever you need me!`
+          : `ठीक है बॉस, माइक बंद कर दिया है। जब ज़रूरत हो "${state.wakeWord}" बोल देना!`;
+      }
+
+      // Conversational Small Talk: Haal-chaal / How are you
+      if (lower.includes('हाल') || lower.includes('कैसे हो') || lower.includes('how are you') || lower.includes('kya haal')) {
+        if (state.tone === 'tapori') return 'एकदम झकास बीड़ू! फुल पावर में हूँ। तुम सुनाओ, आज क्या धमाल मचाना है?';
+        if (state.tone === 'formal') return 'मैं बिल्कुल ठीक हूँ और पूरी तरह सक्रिय हूँ। बताइए, आज मैं आपकी क्या मदद कर सकता हूँ?';
+        return 'मैं एकदम बढ़िया हूँ बॉस! दिमाग और सिस्टम दोनों फुल चार्ज हैं — आप बताओ, आज क्या काम निपटाना है?';
+      }
+
+      // Creator / Identity
+      if (lower.includes('बनाया') || lower.includes('किसने') || lower.includes('who made') || lower.includes('creator')) {
+        return activeLang === 'en-IN'
+          ? `You created me, Boss! I am ${state.wakeWord}, your custom AI voice assistant.`
+          : `मुझे आपने बनाया है बॉस! मैं ${state.wakeWord} हूँ — आपका अपना कस्टम AI असिस्टेंट।`;
+      }
+
+      // Live Weather handled asynchronously
+      if (lower.includes('मौसम') || lower.includes('weather') || lower.includes('तापमान') || lower.includes('temperature')) {
+        return '__LIVE_WEATHER__';
+      }
+
+      // Time / Date
+      if (lower.includes('टाइम') || lower.includes('समय') || lower.includes('time') || lower.includes('बजे')) {
+        const nowStr = new Date().toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
+        return `अभी ${nowStr} बज रहे हैं, बॉस!`;
+      }
+
+      // Name / Identity
+      if (lower.includes('तुम्हारा नाम') || lower.includes('who are you') || lower.includes('कौन हो')) {
+        return `मैं ${state.wakeWord} हूँ — आपका कस्टम AI वॉइस असिस्टेंट और मीडिया स्टूडियो!`;
+      }
+
+      // Check Wake-word when standby
+      if (!state.isListening && lower.includes(wakeLower)) {
+        state.isListening = true;
+        updateListeningUI();
+      }
+
+      // System Battery / Status
+      if (lower.includes('बैटरी') || lower.includes('स्टेटस') || lower.includes('battery') || lower.includes('status')) {
+        return state.tone === 'tapori'
+          ? `सुन बीड़ू! बैटरी ${state.battery}% फुल टंच है, स्टोरेज 78.4 जीबी खाली पड़ा है, और 3 बैकग्राउंड टास्क मस्त चल रहे हैं।`
+          : `सिस्टम स्टेटस: बैटरी ${state.battery}% चार्ज है, 78.4 GB स्टोरेज खाली है, और ${state.apps.filter(a => a.open).length} ऐप्स बैकग्राउंड में सक्रिय हैं।`;
+      }
+
+      // Camera / Photo
+      if (lower.includes('कैमरा') || lower.includes('फोटो') || lower.includes('camera') || lower.includes('photo')) {
+        const cam = state.apps.find(a => a.id === 'camera');
+        if (cam) cam.open = true;
+        state.currentScreen = 'Camera';
+        renderAutomation();
+        return state.tone === 'desi'
+          ? 'हाँ भाई, कैमरा खोल दिया है और बढ़िया सी फोटो क्लिक कर ली है!'
+          : 'कैमरा लॉन्च कर दिया गया है और फोटो कैप्चर हो गई है।';
+      }
+
+      // Home screen
+      if (lower.includes('होम') || lower.includes('home')) {
+        state.currentScreen = 'Home Screen';
+        renderAutomation();
+        return 'सीधे होम स्क्रीन पर आ गए हैं, बॉस!';
+      }
+
+      // SMS
+      if (lower.includes('एसएमएस') || lower.includes('sms') || lower.includes('मैसेज')) {
+        switchTab('automation');
+        return 'SMS कंपोज़र खोल दिया है — बताओ किसको और क्या मैसेज भेजना है?';
+      }
+
+      // Beat-sync / Reel
+      if (lower.includes('बीट') || lower.includes('रील') || lower.includes('वीडियो') || lower.includes('beat')) {
+        switchTab('studio');
+        return 'मीडिया स्टूडियो खोल दिया है! "सेम ऐसा बनाओ" पर क्लिक करो, मैं रेफरेंस रील की बीट्स आपकी क्लिप पर सिंक कर देता हूँ।';
+      }
+
+      // Smart Math Evaluation (e.g., "25 * 4", "100 + 50")
+      const mathMatch = userText.replace(/×|x/gi, '*').replace(/÷/g, '/').match(/(\d+(?:\.\d+)?)\s*([+\-*/])\s*(\d+(?:\.\d+)?)/);
+      if (mathMatch) {
+        const a = parseFloat(mathMatch[1]), op = mathMatch[2], b = parseFloat(mathMatch[3]);
+        const res = op === '+' ? a + b : op === '-' ? a - b : op === '*' ? a * b : (b !== 0 ? +(a / b).toFixed(2) : 'Infinity');
+        return activeLang === 'en-IN' ? `The answer is ${res}.` : `इसका जवाब है ${res}, बॉस!`;
+      }
+
+      // Smart Built-in General Knowledge (Animals, Body, Science, India, etc.)
+      const gkRules = [
+        { k: ['बिल्ली', 'cat'], q: ['पैर', 'टांग', 'leg'], a_hi: 'बिल्ली के 4 पैर होते हैं!', a_en: 'A cat has 4 legs!' },
+        { k: ['कुत्ता', 'dog'], q: ['पैर', 'टांग', 'leg'], a_hi: 'कुत्ते के 4 पैर होते हैं!', a_en: 'A dog has 4 legs!' },
+        { k: ['गाय', 'cow'], q: ['पैर', 'टांग', 'leg'], a_hi: 'गाय के 4 पैर होते हैं!', a_en: 'A cow has 4 legs!' },
+        { k: ['मकड़ी', 'spider'], q: ['पैर', 'टांग', 'leg'], a_hi: 'मकड़ी के 8 पैर होते हैं!', a_en: 'A spider has 8 legs!' },
+        { k: ['चिड़िया', 'पक्षी', 'bird', 'मुर्गी'], q: ['पैर', 'टांग', 'leg'], a_hi: 'पक्षियों के 2 पैर होते हैं!', a_en: 'Birds have 2 legs!' },
+        { k: ['इंसान', 'मनुष्य', 'human'], q: ['हड्डी', 'bone'], a_hi: 'एक वयस्क इंसान के शरीर में 206 हड्डियां होती हैं।', a_en: 'An adult human has 206 bones.' },
+        { k: ['भारत', 'india'], q: ['राजधानी', 'capital'], a_hi: 'भारत की राजधानी नई दिल्ली है।', a_en: 'The capital of India is New Delhi.' },
+        { k: ['प्रधानमंत्री', 'prime minister'], q: ['भारत', 'india'], a_hi: 'भारत के प्रधानमंत्री नरेंद्र मोदी हैं।', a_en: 'The Prime Minister of India is Narendra Modi.' },
+        { k: ['सूरज', 'sun', 'दिशा'], q: ['निकलता', 'उगता', 'rise'], a_hi: 'सूरज पूर्व (East) दिशा से निकलता है और पश्चिम (West) में डूबता है।', a_en: 'The sun rises in the East and sets in the West.' },
+        { k: ['बिल्ली', 'cat'], q: ['खाती', 'खाता', 'eat', 'भोजन'], a_hi: 'बिल्ली मांसाहारी होती है और दूध, मछली, मांस व कैट फूड खाती है।', a_en: 'Cats are carnivores and eat meat, fish, and cat food.' },
+        { k: ['बिल्ली', 'cat'], q: ['आवाज', 'बोलती', 'sound', 'म्याऊं'], a_hi: 'बिल्ली म्याऊं-म्याऊं बोलती है!', a_en: 'A cat says meow!' }
+      ];
+      for (const rule of gkRules) {
+        if (rule.k.some(w => lower.includes(w)) && rule.q.some(w => lower.includes(w))) {
+          return activeLang === 'en-IN' ? rule.a_en : rule.a_hi;
+        }
+      }
+
+      // Return null to trigger live Wikipedia / Smart Web Lookup in async handleCommand
+      return null;
+    }
+
+    async function fetchLiveWeather(activeLang) {
+      try {
+        const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=25.3176&longitude=82.9739&current_weather=true');
+        const data = await res.json();
+        const temp = data?.current_weather?.temperature;
+        const wind = data?.current_weather?.windspeed;
+        if (temp !== undefined) {
+          return activeLang === 'en-IN'
+            ? `Current temperature is ${temp}°C with wind speed ${wind} km/h.`
+            : `अभी तापमान ${temp}°C है और हवा की रफ्तार ${wind} km/h है, बॉस!`;
+        }
+      } catch (e) {}
+      return 'अभी लाइव मौसम डेटा नहीं मिल पाया, कृपया इंटरनेट कनेक्शन जांचें।';
+    }
+
+    // Optional: paste your Gemini API Key once here in code (no UI prompt shown)
+    const GEMINI_API_KEY = '';
+
+    async function fetchSmartAnswer(userText, activeLang, activeStyle) {
+      // 1. Try Cloudflare Hybrid Backend (/api/chat -> Gemini with Llama Auto-Fallback)
+      if (window.location.protocol.startsWith('http')) {
+        try {
+          const cfResp = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: userText, wakeWord: state.wakeWord, language: activeLang, tone: activeStyle })
+          });
+          if (cfResp.ok) {
+            const cfData = await cfResp.json();
+            if (cfData?.reply) return cfData.reply;
+          }
+        } catch (e) {}
+      }
+
+      // 2. Direct Key fallback if set locally
+      const apiKey = GEMINI_API_KEY || loadStateSafe('jarvis_gemini_key', '');
+      if (apiKey) {
+        try {
+          const sysPrompt = `You are ${state.wakeWord}, a warm, human-like personal AI assistant. Reply concisely in 1 to 2 natural sentences. Match the user's exact language (Hindi, Hinglish, English, or Punjabi) and tone (casual, desi, tapori, or formal).`;
+          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: sysPrompt }] },
+              contents: [{ role: 'user', parts: [{ text: userText }] }]
+            })
+          });
+          const data = await resp.json();
+          const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (aiText) return aiText.trim();
+        } catch (e) {}
+      }
+      if (activeLang === 'pa-IN') return `ਸਤ ਸ੍ਰੀ ਅਕਾਲ ਵੀਰੇ! "${userText}" ਸੁਣ ਲਿਆ ਹੈ, ਦੱਸੋ ਅੱਗੇ ਕੀ ਕਰਨਾ ਹੈ?`;
+      if (activeLang === 'en-IN') return `Got it, Boss! "${userText}" — tell me what you'd like to do next.`;
+      if (activeStyle === 'tapori') return `अरे झकास बीड़ू! "${userText}" समझ गया मैं। बोल आगे क्या सीन है?`;
+      return `समझ गया बॉस! "${userText}" पर काम कर रहा हूँ — आप अगला कमांड बोल सकते हैं।`;
+    }
+
+    function addChatMessage(role, text) {
+      state.chat.push({ role, text });
+      if (state.chat.length > 40) state.chat.shift();
+      renderChat();
+      saveStateSafe('jarvis_studio_state_v1', state);
+    }
+
+    function renderChat() {
+      const log = document.getElementById('chat-log');
+      log.innerHTML = state.chat.map(m => {
+        const isUser = m.role === 'user';
+        return `
+          <div class="flex ${isUser ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed ${isUser ? 'accent-bg font-medium' : 'elevated-surface'}">
+              ${m.text.replace(/</g, '&lt;')}
+            </div>
+          </div>
+        `;
+      }).join('');
+      log.scrollTop = log.scrollHeight;
+    }
+
+    async function handleCommand(text) {
+      if (!text.trim()) return;
+      addChatMessage('user', text);
+      let reply = generateBrainReply(text);
+      const detected = detectStyleAndLang(text);
+      if (reply === '__LIVE_WEATHER__') {
+        reply = await fetchLiveWeather(detected.lang);
+      } else if (reply === null) {
+        reply = await fetchSmartAnswer(text, detected.lang, detected.style);
+      }
+      addChatMessage('ai', reply);
+      speakText(reply);
+    }
+
+    // Speech Recognition (if browser supports it)
+    let recognition = null;
+    function setupSpeechRecognition() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) return null;
+      const rec = new SR();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = state.language === 'auto' ? 'hi-IN' : state.language;
+      rec.onresult = (event) => {
+        if (isSpeakingNow) return; // Strict echo lock: never listen while Jarvis is speaking
+        const res = event.results[event.results.length - 1];
+        if (!res.isFinal) return;
+        const transcript = res[0].transcript.trim();
+        if (transcript) handleCommand(transcript);
+      };
+      rec.onerror = (ev) => {
+        if (ev && (ev.error === 'not-allowed' || ev.error === 'service-not-allowed')) {
+          state.isListening = false;
+          updateListeningUI();
+          const fb = document.getElementById('mic-fallback-box');
+          if (fb) fb.classList.remove('hidden');
+        }
+      };
+      rec.onend = () => {
+        // Do NOT restart mic while Jarvis is speaking; utter.onend will restart it cleanly
+        if (isSpeakingNow) return;
+        if (state.isListening && state.continuousLoop) {
+          setTimeout(() => {
+            if (!state.isListening || isSpeakingNow) return;
+            try {
+              rec.lang = state.language === 'auto' ? 'hi-IN' : state.language;
+              rec.start();
+            } catch (e) {}
+          }, 450);
+        } else {
+          updateListeningUI();
+        }
+      };
+      return rec;
+    }
+
+    function updateListeningUI() {
+      const badge = document.getElementById('listening-badge');
+      const orbBtn = document.getElementById('orb-mic-btn');
+      const orbText = document.getElementById('orb-state-text');
+      const topBtn = document.getElementById('label-continuous-btn');
+      if (state.isListening) {
+        badge.textContent = 'LISTENING (LOOP)';
+        badge.className = 'text-[11px] font-semibold px-2 py-0.5 rounded-full border border-emerald-400/50 text-emerald-300 bg-emerald-500/20';
+        orbBtn.classList.add('orb-active');
+        orbText.textContent = 'Listening...';
+        topBtn.textContent = 'माइक बंद करें';
+      } else {
+        badge.textContent = 'STANDBY';
+        badge.className = 'text-[11px] font-semibold px-2 py-0.5 rounded-full border border-slate-600 text-slate-300 bg-slate-800/60';
+        orbBtn.classList.remove('orb-active');
+        orbText.textContent = 'Tap / Say Wake';
+        topBtn.textContent = 'माइक चालू करें';
+      }
+    }
+
+    async function toggleListening() {
+      unlockAudioCtx();
+      // If Jarvis is currently speaking and user taps Orb, interrupt speech and keep listening!
+      if (isSpeakingNow && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+        isSpeakingNow = false;
+        if (state.isListening && recognition) {
+          setTimeout(() => {
+            try { recognition.start(); } catch (e) {}
+          }, 200);
+        }
+        showToast('रोक दिया — बोलिए बॉस, सुन रहा हूँ!');
+        return;
+      }
+
+      state.isListening = !state.isListening;
+      const fallbackBox = document.getElementById('mic-fallback-box');
+      if (state.isListening) {
+        // Explicitly ask Chrome for microphone permission first
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(t => t.stop());
+          } catch (permErr) {
+            state.isListening = false;
+            updateListeningUI();
+            if (fallbackBox) fallbackBox.classList.remove('hidden');
+            showToast('माइक की परमिशन ब्लॉक है — Chrome के लॉक (🔒) आइकन से Microphone Allow करें', 'warn');
+            return;
+          }
+        }
+
+        if (!recognition) recognition = setupSpeechRecognition();
+        let srStarted = false;
+        if (recognition) {
+          try {
+            recognition.lang = state.language === 'auto' ? 'hi-IN' : state.language;
+            recognition.start();
+            srStarted = true;
+          } catch (e) {
+            srStarted = true; // Already running
+          }
+        }
+        if (!srStarted && fallbackBox) {
+          fallbackBox.classList.remove('hidden');
+        } else if (fallbackBox) {
+          fallbackBox.classList.add('hidden');
+        }
+        const greet = state.language === 'en-IN'
+          ? `Yes Boss, ${state.wakeWord} is listening. Speak now!`
+          : `हाँ बॉस, ${state.wakeWord} सुन रहा है — अब बोलिए!`;
+        showVoiceSubtitle(greet);
+        showToast(`${state.wakeWord} अब लगातार सुन रहा है — बोलिए!`);
+      } else {
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        isSpeakingNow = false;
+        if (recognition) {
+          try { recognition.abort(); } catch (e) {}
+          try { recognition.stop(); } catch (e) {}
+        }
+        if (fallbackBox) fallbackBox.classList.add('hidden');
+        showToast('लिसनिंग स्टैंडबाय पर है');
+      }
+      updateListeningUI();
+    }
+
+    // VAD Waveform Animation
+    let vadAnimId = null;
+    function startVADVisualizer() {
+      const canvas = document.getElementById('vad-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let t = 0;
+      if (vadAnimId) cancelAnimationFrame(vadAnimId);
+      function draw() {
+        const w = canvas.width = canvas.clientWidth || 300;
+        const h = canvas.height = canvas.clientHeight || 56;
+        ctx.clearRect(0, 0, w, h);
+        const bars = 36;
+        const barW = w / bars;
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#38bdf8';
+        for (let i = 0; i < bars; i++) {
+          const base = state.isListening ? 0.45 : (state.noiseFilter ? 0.12 : 0.3);
+          const amp = (Math.sin(t * 0.12 + i * 0.45) * 0.5 + 0.5) * base * h;
+          const bh = Math.max(4, amp);
+          ctx.fillStyle = accent;
+          ctx.globalAlpha = state.isListening ? 0.9 : 0.4;
+          ctx.fillRect(i * barW + 2, (h - bh) / 2, Math.max(2, barW - 4), bh);
+        }
+        t += 1;
+        vadAnimId = requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    // Tab Switching
+    function switchTab(tabId) {
+      state.activeTab = tabId;
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+      const activePanel = document.getElementById(`tab-${tabId}`);
+      if (activePanel) activePanel.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-tab').forEach(btn => {
+        const isCurrent = btn.dataset.tab === tabId;
+        btn.className = isCurrent
+          ? 'nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap transition flex items-center gap-1.5 accent-bg'
+          : 'nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition flex items-center gap-1.5 hover:opacity-85';
+      });
+      saveStateSafe('jarvis_studio_state_v1', state);
+    }
+
+    // Render Device Automation
+    function renderAutomation() {
+      document.getElementById('sys-battery').textContent = state.battery + '%';
+      document.getElementById('sys-current-screen').textContent = state.currentScreen;
+      const openCount = state.apps.filter(a => a.open).length;
+      document.getElementById('sys-tasks-count').textContent = `${openCount + 1} Active`;
+
+      const grid = document.getElementById('apps-grid');
+      grid.innerHTML = state.apps.map(app => `
+        <div class="p-3 rounded-xl elevated-surface flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <i data-lucide="${app.icon}" class="w-4 h-4 accent-text shrink-0"></i>
+            <div class="truncate">
+              <div class="text-xs font-semibold truncate">${app.name}</div>
+              <div class="text-[10px] ${app.open ? 'text-emerald-400' : 'text-slate-400'}">${app.open ? 'Running' : 'Closed'}</div>
+            </div>
+          </div>
+          <button type="button" data-app-id="${app.id}" class="toggle-app-btn px-2.5 py-1 rounded-lg text-[11px] font-semibold ${app.open ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'accent-bg'}">
+            ${app.open ? 'Close' : 'Open'}
+          </button>
+        </div>
+      `).join('');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // Render Studio Folders & Beat Bars
+    function renderStudio() {
+      document.getElementById('inputs-folder-list').innerHTML = state.inputs.map(item => `
+        <div class="p-2.5 rounded-xl elevated-surface flex items-center justify-between text-xs">
+          <div class="truncate">
+            <div class="font-semibold truncate">${item.name}</div>
+            <div class="text-[10px]" style="color: var(--text-muted);">${item.type} • ${item.size}</div>
+          </div>
+          <span class="text-[10px] px-2 py-0.5 rounded bg-black/30 accent-text">Input</span>
+        </div>
+      `).join('');
+
+      document.getElementById('outputs-folder-list').innerHTML = state.outputs.map(item => `
+        <div class="p-2.5 rounded-xl elevated-surface flex items-center justify-between text-xs">
+          <div class="truncate">
+            <div class="font-semibold truncate">${item.name}</div>
+            <div class="text-[10px] text-emerald-400">${item.type} • ${item.time}</div>
+          </div>
+          <button type="button" data-out-name="${item.name}" class="preview-output-btn px-2.5 py-1 rounded-lg accent-bg text-[11px] font-semibold">प्रीव्यू</button>
+        </div>
+      `).join('');
+
+      const bars = document.getElementById('beat-bars');
+      const heights = [30, 55, 90, 40, 25, 85, 95, 35, 20, 75, 100, 45, 30, 80, 60, 25, 92, 50, 35, 70, 88, 40, 25, 65];
+      bars.innerHTML = heights.map((h, idx) => `
+        <div class="flex-1 rounded-t transition-all duration-300" style="height:${h}%; background:${idx % 4 === 2 ? 'var(--accent)' : 'rgba(148,163,184,0.35)'};"></div>
+      `).join('');
+
+      // Face Angle status
+      ['front', 'left', 'right'].forEach(ang => {
+        const el = document.getElementById(`angle-status-${ang}`);
+        if (state.faceAngles[ang]) {
+          el.textContent = 'Enrolled ✓';
+          el.className = 'text-[11px] text-emerald-400 mb-2';
+        } else {
+          el.textContent = 'Missing ⚠';
+          el.className = 'text-[11px] text-amber-400 mb-2';
+        }
+      });
+    }
+
+    // Bind All Events
+    function bindEvents() {
+      // Tabs
+      document.querySelectorAll('.nav-tab').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      // Voice Controls
+      document.getElementById('orb-mic-btn').addEventListener('click', toggleListening);
+      document.getElementById('btn-toggle-continuous').addEventListener('click', toggleListening);
+
+      const testVoiceFn = () => {
+        unlockAudioCtx();
+        const sample = state.language === 'en-IN'
+          ? `Hello Boss! I am ${state.wakeWord} speaking in ${state.gender} voice.`
+          : `नमस्ते बॉस! मैं ${state.wakeWord} बोल रहा हूँ — यह मेरी ${state.gender === 'female' ? 'फीमेल' : 'मेल'} आवाज़ है।`;
+        speakText(sample);
+        showToast(`Voice Test (${state.gender.toUpperCase()} • ${state.language})`);
+      };
+      document.getElementById('btn-quick-test-voice').addEventListener('click', testVoiceFn);
+      document.getElementById('btn-confirm-voice').addEventListener('click', testVoiceFn);
+
+      document.querySelectorAll('.gender-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.gender = btn.dataset.gender;
+          state.voiceName = state.gender === 'female' ? FEMALE_VOICE_PRESETS[0].id : MALE_VOICE_PRESETS[0].id;
+          updateVoiceUI();
+          populateVoiceDropdown();
+          saveStateSafe('jarvis_studio_state_v1', state);
+        });
+      });
+
+      function syncLanguageUI() {
+        document.getElementById('select-language').value = state.language;
+        document.querySelectorAll('.top-lang-btn').forEach(btn => {
+          const active = btn.dataset.topLang === state.language || (state.language === 'auto' && btn.dataset.topLang === 'hi-IN');
+          btn.className = active
+            ? 'top-lang-btn px-2 py-1 rounded-md transition accent-bg'
+            : 'top-lang-btn px-2 py-1 rounded-md transition hover:opacity-80';
+        });
+        const quickTestSpan = document.querySelector('#btn-quick-test-voice span');
+        if (quickTestSpan) {
+          quickTestSpan.textContent = state.language === 'en-IN' ? 'Test Voice' : 'आवाज़ टेस्ट करें';
+        }
+      }
+
+      document.querySelectorAll('.top-lang-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.language = btn.dataset.topLang;
+          syncLanguageUI();
+          saveStateSafe('jarvis_studio_state_v1', state);
+          showToast(state.language === 'en-IN' ? 'Language: English' : (state.language === 'pa-IN' ? 'ਭਾਸ਼ਾ: ਪੰਜਾਬੀ' : 'भाषा: हिंदी'));
+        });
+      });
+
+      document.getElementById('select-language').addEventListener('change', (e) => {
+        state.language = e.target.value;
+        syncLanguageUI();
+        saveStateSafe('jarvis_studio_state_v1', state);
+      });
+      syncLanguageUI();
+
+      document.getElementById('range-pitch').addEventListener('input', (e) => {
+        state.pitch = e.target.value;
+        document.getElementById('val-pitch').textContent = state.pitch;
+        saveStateSafe('jarvis_studio_state_v1', state);
+      });
+
+      document.getElementById('range-speed').addEventListener('input', (e) => {
+        state.speed = e.target.value;
+        document.getElementById('val-speed').textContent = state.speed + 'x';
+        saveStateSafe('jarvis_studio_state_v1', state);
+      });
+
+      document.getElementById('toggle-noise-filter').addEventListener('change', (e) => {
+        state.noiseFilter = e.target.checked;
+        document.getElementById('vad-status-pill').textContent = state.noiseFilter ? 'Noise Filter: ON' : 'Noise Filter: OFF';
+        document.getElementById('vad-db-label').textContent = state.noiseFilter ? 'Ambient: -42 dB (Filtered)' : 'Ambient: -18 dB (Raw)';
+      });
+
+      document.getElementById('toggle-continuous-loop').addEventListener('change', (e) => {
+        state.continuousLoop = e.target.checked;
+      });
+
+      if (!Array.isArray(state.wakePresets) || !state.wakePresets.length) {
+        state.wakePresets = ['Jarvis', 'Sheru', 'Bidu'];
+      }
+      function renderWakePresets() {
+        const container = document.getElementById('wake-presets-list');
+        if (!container) return;
+        container.innerHTML = state.wakePresets.map(w => {
+          const isActive = w.toLowerCase() === state.wakeWord.toLowerCase();
+          return `<button type="button" class="wake-preset text-[11px] px-2.5 py-1 rounded-lg transition ${isActive ? 'accent-bg font-semibold' : 'elevated-surface hover:opacity-80'}" data-wake="${w.replace(/"/g, '&quot;')}">${w}</button>`;
+        }).join('');
+      }
+      const applyWakeWord = (w, addNew = false) => {
+        const clean = w.trim();
+        if (!clean) return;
+        if (addNew && !state.wakePresets.some(x => x.toLowerCase() === clean.toLowerCase())) {
+          state.wakePresets.push(clean);
+        }
+        state.wakeWord = clean;
+        document.getElementById('display-wake-word').textContent = state.wakeWord;
+        document.getElementById('header-wake-name').textContent = state.wakeWord;
+        renderWakePresets();
+        saveStateSafe('jarvis_studio_state_v1', state);
+        showToast(`वेक-वर्ड एक्टिव: "${state.wakeWord}"`);
+      };
+      document.getElementById('btn-save-wake-word').addEventListener('click', () => {
+        const inp = document.getElementById('input-wake-word');
+        applyWakeWord(inp.value, true);
+        inp.value = '';
+      });
+      document.getElementById('wake-presets-list').addEventListener('click', (e) => {
+        const btn = e.target.closest('.wake-preset');
+        if (btn) applyWakeWord(btn.dataset.wake, false);
+      });
+      renderWakePresets();
+
+      document.getElementById('select-voice-name').addEventListener('change', (e) => {
+        state.voiceName = e.target.value;
+        saveStateSafe('jarvis_studio_state_v1', state);
+        showToast('नई आवाज़ चुनी गई — "पुष्टि करें (Test)" दबाकर सुनें!');
+      });
+      populateVoiceDropdown();
+
+      // Chat
+      document.getElementById('chat-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const inp = document.getElementById('chat-input');
+        handleCommand(inp.value);
+        inp.value = '';
+      });
+      document.getElementById('btn-clear-chat').addEventListener('click', () => {
+        state.chat = [{ role: 'ai', text: `चैट साफ हो गई। मैं "${state.wakeWord}" सुनने के लिए तैयार हूँ!` }];
+        renderChat();
+      });
+      document.querySelectorAll('.quick-cmd').forEach(b => {
+        b.addEventListener('click', () => handleCommand(b.dataset.cmd));
+      });
+
+      // Automation
+      document.getElementById('apps-grid').addEventListener('click', (e) => {
+        const btn = e.target.closest('.toggle-app-btn');
+        if (!btn) return;
+        const app = state.apps.find(a => a.id === btn.dataset.appId);
+        if (app) {
+          app.open = !app.open;
+          state.currentScreen = app.open ? app.name : 'Home Screen';
+          renderAutomation();
+          showToast(`${app.name} ${app.open ? 'खुल गया' : 'बंद हो गया'}`);
+        }
+      });
+
+      document.querySelectorAll('.sys-cmd-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const act = btn.dataset.action;
+          if (act === 'home') { state.currentScreen = 'Home Screen'; showToast('होम स्क्रीन पर वापस आ गए'); }
+          if (act === 'camera') { state.currentScreen = 'Camera'; state.apps.find(a => a.id === 'camera').open = true; showToast('कैमरा खुल गया'); }
+          if (act === 'photo') { state.outputs.unshift({ id: 'out' + Date.now(), name: `Photo_${Date.now().toString().slice(-4)}.jpg`, type: 'Captured Photo', time: 'Just now' }); renderStudio(); showToast('फोटो खींचकर Outputs में सेव की गई!'); }
+          if (act === 'sms') { document.getElementById('sms-to').focus(); showToast('नीचे SMS विवरण भरें'); }
+          renderAutomation();
+        });
+      });
+
+      document.getElementById('btn-voice-briefing').addEventListener('click', () => {
+        const msg = `सिस्टम ब्रीफिंग: बैटरी ${state.battery} प्रतिशत है, 78.4 जीबी स्टोरेज खाली है, और ${state.apps.filter(a => a.open).length} ऐप्स बैकग्राउंड में चल रहे हैं।`;
+        speakText(msg);
+        showToast('वॉयस ब्रीफिंग चल रही है...');
+      });
+
+      document.getElementById('sms-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const to = document.getElementById('sms-to').value.trim();
+        const body = document.getElementById('sms-body').value.trim();
+        if (!to || !body) { showToast('कृपया नाम और मैसेज दोनों लिखें', 'warn'); return; }
+        showToast(`SMS भेजा गया → ${to}: "${body}"`);
+        speakText(`${to} को एसएमएस सेंड कर दिया गया है।`);
+        e.target.reset();
+      });
+
+      // Studio Uploads & Actions
+      document.getElementById('input-media-upload').addEventListener('change', (e) => {
+        Array.from(e.target.files).forEach(f => {
+          state.inputs.unshift({
+            id: 'in' + Date.now() + Math.random(),
+            name: f.name,
+            type: f.type.startsWith('video') ? 'User Video' : 'User Photo',
+            size: (f.size / (1024 * 1024)).toFixed(1) + ' MB'
+          });
+        });
+        renderStudio();
+        showToast('फाइल Inputs Folder में जुड़ गई!');
+      });
+
+      document.getElementById('outputs-folder-list').addEventListener('click', (e) => {
+        const btn = e.target.closest('.preview-output-btn');
+        if (btn) showToast(`प्रीव्यू खुला: ${btn.dataset.outName}`);
+      });
+
+      document.getElementById('btn-run-beatsync').addEventListener('click', () => {
+        const statusEl = document.getElementById('beatsync-status');
+        const progEl = document.getElementById('beatsync-progress-label');
+        statusEl.textContent = 'Analyzing Beats & Speed-Ramp...';
+        let p = 0;
+        const iv = setInterval(() => {
+          p += 25;
+          progEl.textContent = p + '%';
+          if (p >= 100) {
+            clearInterval(iv);
+            statusEl.textContent = 'Completed & Saved to Outputs ✓';
+            state.outputs.unshift({ id: 'out' + Date.now(), name: `BeatSync_Reel_${Date.now().toString().slice(-4)}.mp4`, type: 'Beat-Sync Render', time: 'Just now' });
+            renderStudio();
+            speakText('बॉस, बीट सिंक और स्लो मोशन वीडियो तैयार है! आउटपुट फोल्डर में सेव कर दिया है।');
+            showToast('Beat-Sync रेंडर तैयार होकर Outputs में सेव हो गया!');
+          }
+        }, 350);
+      });
+
+      document.querySelectorAll('.enroll-angle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const ang = btn.dataset.angle;
+          state.faceAngles[ang] = true;
+          renderStudio();
+          document.getElementById('face-hitl-alert').classList.add('hidden');
+          showToast(`${ang.toUpperCase()} एंगल फेस स्कैन सेव हो गया!`);
+        });
+      });
+
+      document.getElementById('btn-run-faceswap').addEventListener('click', () => {
+        const missing = Object.keys(state.faceAngles).find(k => !state.faceAngles[k]);
+        if (missing) {
+          const alertBox = document.getElementById('face-hitl-alert');
+          const msgEl = document.getElementById('face-hitl-msg');
+          msgEl.textContent = `"मुझे ${missing.toUpperCase()} एंगल का फोटो चाहिए — अभी कैप्चर करें?"`;
+          alertBox.classList.remove('hidden');
+          speakText(`बॉस, टारगेट वीडियो में ${missing} एंगल आया है जो डेटाबेस में नहीं है। मुझे इस एंगल का फोटो चाहिए।`);
+          return;
+        }
+        state.outputs.unshift({ id: 'out' + Date.now(), name: `FaceSwap_Pro_${Date.now().toString().slice(-4)}.mp4`, type: 'Face Swap Render', time: 'Just now' });
+        renderStudio();
+        speakText('फेस स्वैप पूरा हो गया है और आउटपुट फोल्डर में सेव है।');
+        showToast('Face Swap रेंडर पूरा हुआ!');
+      });
+
+      document.getElementById('btn-capture-missing-angle').addEventListener('click', () => {
+        Object.keys(state.faceAngles).forEach(k => state.faceAngles[k] = true);
+        document.getElementById('face-hitl-alert').classList.add('hidden');
+        renderStudio();
+        showToast('मिसिंग एंगल कैप्चर हो गया! अब Face Swap चला सकते हैं।');
+      });
+
+      // AI Gen Simulation
+      document.getElementById('btn-gen-image').addEventListener('click', () => {
+        const p = document.getElementById('t2i-prompt').value.trim() || 'Futuristic Neon Studio';
+        const box = document.getElementById('t2i-preview');
+        box.innerHTML = `<div class="p-4 text-center"><div class="text-xs font-bold accent-text mb-1">Generated Preview (${document.getElementById('t2i-ratio').value})</div><div class="text-[11px] text-slate-300">"${p.replace(/</g, '&lt;')}"</div></div>`;
+        showToast('Text-to-Image मॉड्यूल प्रीव्यू तैयार!');
+      });
+      document.getElementById('btn-gen-video').addEventListener('click', () => {
+        const p = document.getElementById('t2v-prompt').value.trim() || 'Cinematic Sunset Drone Shot';
+        const box = document.getElementById('t2v-preview');
+        box.innerHTML = `<div class="p-4 text-center"><div class="text-xs font-bold text-emerald-400 mb-1">Video Queued (${document.getElementById('t2v-duration').value})</div><div class="text-[11px] text-slate-300">"${p.replace(/</g, '&lt;')}"</div></div>`;
+        showToast('Text-to-Video मॉड्यूल क्यू में जुड़ गया!');
+      });
+
+      // Themes & Custom Builder
+      document.querySelectorAll('.theme-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.theme = btn.dataset.theme;
+          applyTheme();
+          saveStateSafe('jarvis_studio_state_v1', state);
+          showToast(`थीम बदली गई: ${btn.textContent.trim()}`);
+        });
+      });
+
+      document.getElementById('custom-bg-color').addEventListener('input', (e) => {
+        state.theme = 'custom';
+        state.customBg = e.target.value;
+        applyTheme();
+        saveStateSafe('jarvis_studio_state_v1', state);
+      });
+      document.getElementById('custom-accent-color').addEventListener('input', (e) => {
+        state.theme = 'custom';
+        state.customAccent = e.target.value;
+        applyTheme();
+        saveStateSafe('jarvis_studio_state_v1', state);
+      });
+      document.getElementById('custom-font-select').addEventListener('change', (e) => {
+        state.customFont = e.target.value;
+        applyTheme();
+        saveStateSafe('jarvis_studio_state_v1', state);
+      });
+
+      // App Icons
+      document.querySelectorAll('.icon-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.customIconDataUrl = null;
+          state.appIcon = btn.dataset.icon;
+          renderAppIcon();
+          saveStateSafe('jarvis_studio_state_v1', state);
+          showToast('ऐप आइकन अपडेट हो गया!');
+        });
+      });
+      document.getElementById('input-custom-icon').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          state.customIconDataUrl = ev.target.result;
+          renderAppIcon();
+          saveStateSafe('jarvis_studio_state_v1', state);
+          showToast('कस्टम ऐप आइकन लग गया!');
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function updateVoiceUI() {
+      document.querySelectorAll('.gender-btn').forEach(btn => {
+        const active = btn.dataset.gender === state.gender;
+        btn.className = active
+          ? 'gender-btn py-2 px-3 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 accent-bg border-transparent'
+          : 'gender-btn py-2 px-3 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 elevated-surface';
+      });
+    }
+
+    // Init
+    window.addEventListener('DOMContentLoaded', () => {
+      applyTheme();
+      renderAppIcon();
+      updateVoiceUI();
+      updateListeningUI();
+      renderChat();
+      renderAutomation();
+      renderStudio();
+      switchTab(state.activeTab || 'voice');
+      bindEvents();
+      startVADVisualizer();
+            document.getElementById('display-wake-word').textContent = state.wakeWord;
+      document.getElementById('header-wake-name').textContent = state.wakeWord;
+      document.getElementById('select-language').value = state.language;
+      document.getElementById('range-pitch').value = state.pitch;
+      document.getElementById('val-pitch').textContent = state.pitch;
+      document.getElementById('range-speed').value = state.speed;
+      document.getElementById('val-speed').textContent = state.speed + 'x';
+      if (window.lucide) lucide.createIcons();
+    });
+  </script>
+</body>
+</html>
